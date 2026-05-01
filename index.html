@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMAP Label Positioner</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.1/dist/svg2pdf.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>UMAP Label Positioner</h1>
+                <p>Drag labels to position them perfectly</p>
+            </div>
+
+            <div class="sidebar-content">
+                <!-- Data Upload Section -->
+                <div class="collapsible-section" data-section="upload">
+                    <div class="section-header" onclick="toggleSection('upload')">
+                        <h3><i class="fa-solid fa-table"></i> Data Upload</h3>
+                        <div class="section-summary" id="uploadSummary">No file uploaded</div>
+                        <span class="collapse-icon">▼</span>
+                    </div>
+                    <div class="section-content" id="uploadContent">
+                        <label class="file-upload-btn">
+                            <input type="file" id="coordsFile" accept=".csv,.tsv,.txt">
+                            Upload CSV/TSV
+                        </label>
+                        <small>
+                            A table with columns for X/Y/grouping<br>
+                            we'll auto-detect them or let you choose<br>
+                            Your precious data is kept local and safe!
+                        </small>
+                        <div id="filePathDisplay" class="file-path" style="display: none;"></div>
+
+                        <button id="loadExampleBtn" class="btn btn-small" style="margin-top: 10px;">Load Example</button>
+                        <small>Quick start with a random toy, enjoy!</small>
+
+                        <button id="downloadExampleBtn" class="btn btn-small" style="margin-top: 10px;">Download Example</button>
+                        <small>See how the example data above looks like</small>
+
+                        <!-- Column Selection (shown after upload) -->
+                        <div id="columnSelection" style="display: none;">
+                            <div class="column-select-group">
+                                <label>
+                                    X column:
+                                    <select id="xColumnSelect"></select>
+                                </label>
+                                <label>
+                                    Y column:
+                                    <select id="yColumnSelect"></select>
+                                </label>
+                                <label>
+                                    Label column (optional):
+                                    <select id="labelColumnSelect">
+                                        <option value="">-- None --</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <button id="applyColumnsBtn" class="btn btn-small">Apply Selection</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Label Settings Section -->
+                <div class="collapsible-section" data-section="labels">
+                    <div class="section-header" onclick="toggleSection('labels')">
+                        <h3><i class="fa-solid fa-tag"></i> Label Settings</h3>
+                        <div class="section-summary" id="labelsSummary">No labels added</div>
+                        <span class="collapse-icon">▼</span>
+                    </div>
+                    <div class="section-content" id="labelsContent">
+                        <div id="labelsList" class="labels-list">
+                            <!-- Label rows will be added here dynamically -->
+                        </div>
+                        <button id="addLabelBtn" class="btn btn-small btn-add-label">➕ Add Label</button>
+                    </div>
+                </div>
+
+                <!-- Dot Settings Section -->
+                <div class="collapsible-section" data-section="dots">
+                    <div class="section-header" onclick="toggleSection('dots')">
+                        <h3><i class="fa-solid fa-palette"></i> Dot Settings</h3>
+                        <div class="section-summary" id="dotsSummary">Configure point appearance</div>
+                        <span class="collapse-icon">▼</span>
+                    </div>
+                    <div class="section-content" id="dotsContent">
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                Point Size: <span id="pointSizeDisplay">3</span>px
+                            </label>
+                            <input type="range" id="pointSize" min="1" max="10" value="3" step="0.5">
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                Point Opacity: <span id="pointOpacityDisplay">0.6</span>
+                            </label>
+                            <input type="range" id="pointOpacity" min="0" max="1" value="0.6" step="0.1">
+                        </div>
+
+                        <div id="dotColorSettings" class="dot-color-settings" style="display: none;">
+                            <label class="setting-label">Colors by Original Groups:</label>
+                            <div id="dotColorList" class="dot-color-list">
+                                <!-- Color pickers for each original group will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plot Settings Section -->
+                <div class="collapsible-section" data-section="plot">
+                    <div class="section-header" onclick="toggleSection('plot')">
+                        <h3><i class="fa-solid fa-down-left-and-up-right-to-center"></i> Plot Settings</h3>
+                        <div class="section-summary" id="plotSummary">800 × 600 px</div>
+                        <span class="collapse-icon">▼</span>
+                    </div>
+                    <div class="section-content" id="plotContent">
+                        <!-- Unit Preference -->
+                        <div class="setting-group">
+                            <label class="setting-label">Preferred Unit:</label>
+                            <div class="radio-group-inline">
+                                <label><input type="radio" name="unitPref" value="px" checked> px</label>
+                                <label><input type="radio" name="unitPref" value="inch"> inch</label>
+                                <label><input type="radio" name="unitPref" value="cm"> cm</label>
+                            </div>
+                        </div>
+
+                        <!-- Plot Size -->
+                        <div class="setting-group">
+                            <label class="setting-label">Width:</label>
+                            <div class="dimension-control">
+                                <button class="btn-increment" id="widthDecrement">−</button>
+                                <input type="number" id="plotWidth" min="50" max="2000" value="800">
+                                <button class="btn-increment" id="widthIncrement">+</button>
+                                <span id="widthDisplay">px</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Height:</label>
+                            <div class="dimension-control">
+                                <button class="btn-increment" id="heightDecrement">−</button>
+                                <input type="number" id="plotHeight" min="50" max="2000" value="600">
+                                <button class="btn-increment" id="heightIncrement">+</button>
+                                <span id="heightDisplay">px</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Section -->
+                <div class="collapsible-section" data-section="export">
+                    <div class="section-header" onclick="toggleSection('export')">
+                        <h3><i class="fa-solid fa-file-export"></i> Export</h3>
+                        <div class="section-summary" id="exportSummary">Download results</div>
+                        <span class="collapse-icon">▼</span>
+                    </div>
+                    <div class="section-content" id="exportContent">
+                        <small style="margin-top: 0;"><strong>Code Export:</strong></small>
+                        <button id="exportTableBtn" class="btn btn-export"><i class="fa-solid fa-table"></i> Label Table (CSV)</button>
+                        <button id="exportGgplot2Btn" class="btn btn-export"><img src="https://cran.r-project.org/Rlogo.svg" class="btn-icon" alt="R"> ggplot2 Code</button>
+                        <button id="exportMatplotlibBtn" class="btn btn-export"><img src="https://s3.dualstack.us-east-2.amazonaws.com/pythondotorg-assets/media/files/python-logo-only.svg" class="btn-icon" alt="Python"> Matplotlib Code</button>
+
+                        <small style="margin-top: 16px;">
+                            <strong>Direct Figure Export:</strong>
+                            <span id="exportSpinner" class="export-spinner" style="display: none;">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Preparing...
+                            </span>
+                        </small>
+                        <div class="export-button-row">
+                            <button id="exportPngBtn" class="btn btn-export-fig"><i class="fa-solid fa-image"></i> PNG</button>
+                            <button id="exportPdfBtn" class="btn btn-export-fig"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                            <button id="exportSvgBtn" class="btn btn-export-fig"><i class="fa-solid fa-vector-square"></i> SVG</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Right Plot Area -->
+        <main class="plot-area">
+            <div class="plot-header">
+                <div id="stats" class="stats"></div>
+                <div class="workflow-hint">📋 <strong>Workflow:</strong> Upload CSV → Select columns → Add/edit labels → Drag to position → Adjust size/colors → Export code</div>
+            </div>
+
+            <div class="plot-wrapper">
+                <div id="plotContainer" class="plot-container">
+                    <svg id="plot"></svg>
+                    <div id="instructions" class="instructions">
+                        <p>📌 Upload your CSV data to get started</p>
+                        <p>The app will auto-detect columns or let you choose</p>
+                    </div>
+                    <!-- Resize handle -->
+                    <div id="resizeHandle" class="resize-handle" style="display: none;"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
